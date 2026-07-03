@@ -1,0 +1,245 @@
+import Link from "next/link";
+import { Nav } from "@/components/Nav";
+import { Footer } from "@/components/Footer";
+import { PatchBay } from "@/components/PatchBay";
+import { PIPELINE, SITE } from "@/lib/site";
+import { PROVIDERS } from "@/lib/providers";
+
+export default function Home() {
+  return (
+    <>
+      <Nav />
+      <main>
+        <Hero />
+        <Pipeline />
+        <Providers />
+        <Constraint />
+        <Quickstart />
+        <CtaBand />
+      </main>
+      <Footer />
+    </>
+  );
+}
+
+function Hero() {
+  return (
+    <section className="relative overflow-hidden border-b border-[var(--color-hairline)]">
+      <div className="accent-glow pointer-events-none absolute inset-0" />
+      <div className="hairline-grid pointer-events-none absolute inset-0 opacity-40" />
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 lg:grid-cols-2 lg:py-28">
+        <div className="animate-rise">
+          <div className="mono mb-5 inline-flex items-center gap-2 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
+            OPEN SOURCE · POWERED BY SPEECHBASE
+          </div>
+          <h1 className="text-balance text-5xl font-extrabold leading-[1.04] tracking-tight sm:text-6xl">
+            Turn a topic into a podcast{" "}
+            <span className="text-[var(--color-accent)]">you can watch.</span>
+          </h1>
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--color-text-secondary)]">
+            podframes writes a two-host script, mixes <strong className="text-[var(--color-text)]">different TTS
+            providers</strong> into one conversation with Speechbase, and animates each host{" "}
+            <strong className="text-[var(--color-text)]">lip-synced to the real audio</strong> — a captioned,
+            watchable episode from a single line of input.
+          </p>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Link href="/studio" className="btn btn-primary px-5 py-3 text-base">
+              Open the studio →
+            </Link>
+            <a href={SITE.github} className="btn btn-ghost px-5 py-3 text-base" target="_blank" rel="noreferrer">
+              View source
+            </a>
+          </div>
+          <div className="mono mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[var(--color-text-muted)]">
+            <span>Speechbase conversations</span>
+            <span>·</span>
+            <span>Nano Banana 2</span>
+            <span>·</span>
+            <span>P-Video lip-sync</span>
+            <span>·</span>
+            <span>HyperFrames</span>
+          </div>
+        </div>
+        <div className="animate-rise panel p-6 lg:p-8" style={{ animationDelay: "0.12s" }}>
+          <PatchBay />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Pipeline() {
+  return (
+    <section id="pipeline" className="mx-auto max-w-6xl px-5 py-20">
+      <SectionHead
+        kicker="THE PIPELINE"
+        title="Six steps, one command"
+        sub="Every stage is a typed module in @podframes/core. Run the whole thing, or resume from any step."
+      />
+      <div className="mt-12 grid gap-px overflow-hidden rounded-none border border-[var(--color-hairline)] bg-[var(--color-hairline)] sm:grid-cols-2 lg:grid-cols-3">
+        {PIPELINE.map((s) => (
+          <div key={s.n} className="group bg-[var(--color-surface)] p-7 transition-colors hover:bg-[var(--color-surface-2)]">
+            <div className="flex items-center justify-between">
+              <span className="mono text-sm text-[var(--color-text-muted)]">{s.n}</span>
+              <span className="mono rounded-none border border-[var(--color-hairline)] px-2.5 py-1 text-[11px] text-[var(--color-accent)]">
+                {s.tech}
+              </span>
+            </div>
+            <h3 className="mt-4 text-xl font-bold">{s.title}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">{s.blurb}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Providers() {
+  return (
+    <section id="providers" className="border-y border-[var(--color-hairline)] bg-[var(--color-surface)]/40">
+      <div className="mx-auto max-w-6xl px-5 py-20">
+        <SectionHead
+          kicker="THE MIX"
+          title="Any voices. Any providers. One conversation."
+          sub="This is the whole point. Give each host a different provider and Speechbase returns a single, leveled, word-aligned track. The video tags who's talking — in their provider's color."
+        />
+        <div className="mt-12 flex flex-wrap gap-3">
+          {PROVIDERS.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center gap-2.5 rounded-none border border-[var(--color-hairline)] bg-[var(--color-surface)] px-4 py-3"
+            >
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ background: p.color, boxShadow: `0 0 12px ${p.color}` }}
+              />
+              <span className="text-sm font-semibold">{p.label}</span>
+              {p.models?.[0] && (
+                <span className="mono text-[11px] text-[var(--color-text-muted)]">{p.models[0].label}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Constraint() {
+  // The honest-menu section: two real providers, one real trade-off.
+  return (
+    <section className="mx-auto max-w-6xl px-5 py-20">
+      <SectionHead
+        kicker="THE HONEST PART"
+        title="Two ways to animate — pick your trade-off"
+        sub="The Speechbase conversation is always the hero audio. What changes is how the hosts lip-sync to it."
+      />
+      <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        <div className="panel p-7">
+          <h3 className="text-lg font-bold text-[var(--color-success)]">P-Video · default</h3>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+            One clip per line on Replicate&apos;s Pruna AI p-video, <strong className="text-[var(--color-text)]">lip-synced
+            to that turn&apos;s real audio</strong>. Faster and ~5× cheaper (~$0.02/s at 720p), with per-clip regeneration.
+          </p>
+        </div>
+        <div className="panel p-7">
+          <h3 className="text-lg font-bold text-[var(--color-accent)]">LTX-2.3 · higher fidelity</h3>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+            The same per-turn lip-sync shape on fal.ai LTX-2.3 with stronger fidelity and natural variety.
+            ~$0.10 per second of video. One click to switch, per-clip regeneration either way.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Quickstart() {
+  return (
+    <section id="quickstart" className="border-t border-[var(--color-hairline)]">
+      <div className="mx-auto max-w-6xl px-5 py-20">
+        <SectionHead kicker="QUICKSTART" title="Three keys, one command" />
+        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+          <Code
+            label="1 · cp .env.example .env.local, add your keys"
+            lines={["SPEECHBASE_API_KEY=sk_...", "GEMINI_API_KEY=AIza...", "REPLICATE_API_KEY=r8_..."]}
+          />
+          <Code
+            label="2 · generate"
+            lines={[
+              "pnpm install",
+              'pnpm podframes generate \\',
+              '  --topic "Why is the sky blue?" \\',
+              "  --turns 10",
+            ]}
+          />
+        </div>
+        <p className="mt-6 text-sm text-[var(--color-text-secondary)]">
+          Prefer a UI?{" "}
+          <Link href="/studio" className="text-[var(--color-accent)] hover:underline">
+            Open the studio
+          </Link>{" "}
+          to pick voices and watch the pipeline run live.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function CtaBand() {
+  return (
+    <section className="relative overflow-hidden border-t border-[var(--color-hairline)]">
+      <div className="accent-glow pointer-events-none absolute inset-0" />
+      <div className="relative mx-auto max-w-3xl px-5 py-24 text-center">
+        <h2 className="text-balance text-4xl font-extrabold tracking-tight sm:text-5xl">
+          Make your first episode.
+        </h2>
+        <p className="mx-auto mt-5 max-w-xl text-lg text-[var(--color-text-secondary)]">
+          A topic goes in. A captioned, animated, multi-voice podcast video comes out.
+        </p>
+        <div className="mt-8 flex justify-center gap-3">
+          <Link href="/studio" className="btn btn-primary px-6 py-3 text-base">
+            Open the studio →
+          </Link>
+          <a href={SITE.github} className="btn btn-ghost px-6 py-3 text-base">
+            Star on GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── small helpers ─────────────────────────────────────────────────────────────
+
+function SectionHead({ kicker, title, sub }: { kicker: string; title: string; sub?: string }) {
+  return (
+    <div className="max-w-2xl">
+      <div className="mono tech-prefix text-xs tracking-[0.25em] text-[var(--color-accent)]">{kicker}</div>
+      <h2 className="mt-3 text-3xl font-extrabold tracking-tight sm:text-4xl">{title}</h2>
+      {sub && <p className="mt-4 text-lg leading-relaxed text-[var(--color-text-secondary)]">{sub}</p>}
+    </div>
+  );
+}
+
+function Code({ label, lines }: { label: string; lines: string[] }) {
+  return (
+    <div className="panel overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-[var(--color-hairline)] px-4 py-3">
+        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-danger)]/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-warn)]/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-success)]/70" />
+        <span className="mono ml-2 text-xs text-[var(--color-text-muted)]">{label}</span>
+      </div>
+      <pre className="mono overflow-x-auto px-5 py-4 text-sm leading-relaxed text-[var(--color-text)]">
+        {lines.map((l, i) => (
+          <div key={i}>
+            <span className="select-none text-[var(--color-text-muted)]">$ </span>
+            {l}
+          </div>
+        ))}
+      </pre>
+    </div>
+  );
+}

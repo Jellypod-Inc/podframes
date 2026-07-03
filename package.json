@@ -1,0 +1,46 @@
+{
+  "name": "podframes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn a topic into a fully animated, AI-hosted podcast video — powered by Speechbase multi-provider conversations, Gemini (Nano Banana 2 + Veo 3.1 Fast), and HyperFrames.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jellypod-Inc/podframes"
+  },
+  "homepage": "https://github.com/Jellypod-Inc/podframes",
+  "bugs": "https://github.com/Jellypod-Inc/podframes/issues",
+  "type": "module",
+  "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter \"./packages/*\" build",
+    "dev:web": "pnpm --filter @podframes/web dev",
+    "build:web": "pnpm --filter @podframes/web build",
+    "generate": "pnpm --filter podframes-cli start",
+    "podframes": "pnpm --filter podframes-cli start --",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean && rm -rf node_modules"
+  },
+  "keywords": [
+    "speechbase",
+    "text-to-speech",
+    "tts",
+    "podcast",
+    "ai-video",
+    "veo",
+    "nano-banana",
+    "gemini",
+    "hyperframes"
+  ],
+  "devDependencies": {
+    "@podframes/core": "workspace:*",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

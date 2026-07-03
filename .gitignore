@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# build output
+dist/
+.next/
+out/
+*.tsbuildinfo
+
+# pipeline run artifacts (generated media can be large)
+projects/*
+!projects/.gitkeep
+runs/
+
+# locally-fetched agent skills (pinned in skills-lock.json)
+.agents/
+
+# hyperframes / render caches
+.hyperframes/
+renders/
+snapshots/
+
+# os / editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# misc
+coverage/
+*.local

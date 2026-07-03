@@ -1,0 +1,16 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+# Dependency build scripts are declined by default — nothing runs postinstall.
+# podframes renders via the hyperframes CLI + ffmpeg and does not need these
+# native builds. If you later want to `pnpm build` the publishable core bundle,
+# or use background-removal features, run `pnpm approve-builds` to enable the
+# specific package(s) you need.
+allowBuilds:
+  "@google/genai": false
+  esbuild: false
+  onnxruntime-node: false
+  protobufjs: false
+  sharp: false
+  unrs-resolver: false

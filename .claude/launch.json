@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@podframes/web", "exec", "next", "dev", "-p", "3021"],
+      "port": 3021
+    }
+  ]
+}

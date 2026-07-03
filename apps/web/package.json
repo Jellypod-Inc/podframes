@@ -1,0 +1,36 @@
+{
+  "name": "@podframes/web",
+  "version": "0.1.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jellypod-Inc/podframes"
+  },
+  "homepage": "https://github.com/Jellypod-Inc/podframes",
+  "bugs": "https://github.com/Jellypod-Inc/podframes/issues",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@podframes/core": "workspace:*",
+    "next": "^16.2.9",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.9",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.3"
+  }
+}

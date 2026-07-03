@@ -1,0 +1,233 @@
+@import "tailwindcss";
+
+/* ── podframes design tokens (mirror of /design.md) ───────────────────────────
+ * podframes is the first-party showcase for Speechbase, so it inherits Speechbase's
+ * structural language: SQUARE corners (radius 0), warm stone-charcoal surfaces,
+ * 1px hairline zoning, DM Sans + Geist Mono. The one thing that stays podframes'
+ * own is the signal color — electric cyan — tied to the patch-bay / provider mix. */
+@theme {
+  /* warm stone-charcoal ramp (hue ~40, very low chroma — matches Speechbase's warm neutrals, not a cool blue-black) */
+  --color-bg: #100f0e;
+  --color-surface: #181715;
+  --color-surface-2: #201e1b;
+  --color-overlay: #272421;
+  --color-hairline: #2f2b27;
+  --color-text: #f4f2ec;
+  --color-text-secondary: #a8a298;
+  /* WCAG AA (≥4.5:1) on --color-bg AND the raised surfaces (--color-surface-2),
+   * where muted labels actually live. Warm muted gray. */
+  --color-text-muted: #93897b;
+  --color-accent: #22d3ee;
+  --color-accent-blue: #5b8cff;
+  /* Dark text that sits ON the cyan accent (buttons, active chips). */
+  --color-accent-fg: #04181d;
+  --color-success: #34d399;
+  --color-warn: #fbbf24;
+  --color-danger: #ff5c5c;
+
+  /* provider channel colors (patch bay) */
+  --color-openai: #34d399;
+  --color-elevenlabs: #a78bfa;
+  --color-cartesia: #22d3ee;
+  --color-hume: #fb7185;
+  --color-google: #5b8cff;
+  --color-inworld: #fbbf24;
+  --color-deepgram: #2dd4bf;
+
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", monospace;
+
+  /* Square. Speechbase runs radius 0 across every surface; we match it. */
+  --radius-sm: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
+
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-color: var(--color-hairline);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: #fff;
+}
+
+/* Accessible focus — visible cyan ring on every keyboard-focused control. Square. */
+:where(button, a, input, select, textarea, [tabindex], [role="button"]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* Thin square scrollbars for the live console */
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: var(--color-hairline);
+  border-radius: 0;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── reusable atoms ───────────────────────────────────────────────────────── */
+@layer components {
+  .mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Speechbase-style technical gutter label — "// THE PIPELINE" */
+  .tech-prefix::before {
+    content: "// ";
+    opacity: 0.5;
+  }
+
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-hairline);
+    border-radius: 0;
+  }
+
+  /* Dual-thumb cue-range slider: two of these stacked on the same track (see Step3Look's
+     CueRangeSlider) — the track itself stays click-through so only the thumb you're
+     touching responds, letting both handles share one strip without fighting each other. */
+  .cue-range {
+    appearance: none;
+    background: transparent;
+    pointer-events: none;
+  }
+  .cue-range::-webkit-slider-runnable-track {
+    background: transparent;
+  }
+  .cue-range::-moz-range-track {
+    background: transparent;
+  }
+  .cue-range::-webkit-slider-thumb {
+    appearance: none;
+    pointer-events: auto;
+    width: 13px;
+    height: 13px;
+    border-radius: 999px;
+    background: var(--color-accent);
+    cursor: grab;
+    box-shadow: 0 0 0 3px var(--color-bg);
+  }
+  .cue-range::-moz-range-thumb {
+    pointer-events: auto;
+    width: 13px;
+    height: 13px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--color-accent);
+    cursor: grab;
+    box-shadow: 0 0 0 3px var(--color-bg);
+  }
+
+  /* Preview-pane echo of the render's GSAP b-roll entrance (scale+opacity, back.out
+     overshoot) — cubic-bezier(.34,1.56,.64,1) is the standard CSS approximation of
+     GSAP's back.out(1.6). Re-keyed per cue.id so scrubbing into a new cue replays it. */
+  .cue-pop {
+    animation: cue-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes cue-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.82) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0;
+    font-weight: 600;
+    transition: all 0.16s var(--ease-out-expo);
+  }
+  /* Tactile press, the way Speechbase's controls nudge down on activate. */
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: var(--color-accent-fg);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent),
+      0 8px 30px -14px color-mix(in srgb, var(--color-accent) 65%, transparent);
+  }
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--color-accent) 90%, white);
+  }
+  .btn-ghost {
+    background: var(--color-surface-2);
+    color: var(--color-text);
+    border: 1px solid var(--color-hairline);
+  }
+  .btn-ghost:hover {
+    border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-hairline));
+  }
+
+  /* Hero ambience — radial cyan wash behind the fold. */
+  .accent-glow {
+    background: radial-gradient(
+      60% 50% at 50% 0%,
+      color-mix(in srgb, var(--color-accent) 18%, transparent),
+      transparent 70%
+    );
+  }
+  /* Faint blueprint grid, masked to fade out below the hero. */
+  .hairline-grid {
+    background-image:
+      linear-gradient(to right, var(--color-hairline) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-hairline) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(80% 60% at 50% 0, #000 30%, #0000 80%);
+    mask-image: radial-gradient(80% 60% at 50% 0, #000 30%, #0000 80%);
+  }
+}
+
+/* ── motion ───────────────────────────────────────────────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.82); }
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dash-flow {
+  to { stroke-dashoffset: -24; }
+}
+.animate-rise { animation: rise 0.7s var(--ease-out-expo) both; }
+.live-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  html { scroll-behavior: auto; }
+}
