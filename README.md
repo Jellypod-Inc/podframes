@@ -14,14 +14,15 @@
 
 </div>
 
-<!--
-  HERO VIDEO — one manual step, in the GitHub web editor only:
-  edit this README on github.com, drag in the launch video
-  (projects/_launch/video/launch-video-readme.mp4 locally, 6 MB — under the
-  10 MB inline-player cap), and replace this comment with the generated
-  https://github.com/user-attachments/assets/… URL on its own line.
-  GitHub renders that URL as an inline video player; committed mp4s don't render.
--->
+<div align="center">
+
+<a href="https://youtu.be/YP75ParZdqQ">
+  <img src=".github/assets/launch-thumb.jpg" alt="Watch podframes turn a topic into a video podcast with talking AI avatars" width="76%" />
+</a>
+
+<sub>▶ <a href="https://youtu.be/YP75ParZdqQ"><b>Watch the 1-minute demo</b></a> — a topic in, a talking-avatar podcast out.</sub>
+
+</div>
 
 ---
 

@@ -52,7 +52,7 @@ export const PIPELINE: PipelineStep[] = [
     title: "Package it",
     tech: "Gemini + Nano Banana 2",
     blurb:
-      "The timestamped transcript drives karaoke captions, provider lower-thirds, b-roll, and stat cards — on the beat.",
+      "The timestamped transcript drives karaoke captions, b-roll, lower-thirds, and stat cards — on the beat.",
   },
   {
     n: "06",
