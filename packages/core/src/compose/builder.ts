@@ -209,18 +209,6 @@ export function buildComposition(input: BuildInput): string {
   const overlays: string[] = [];
   const tl: string[] = [];
 
-  // Now-speaking chips (one per turn) — the patch-bay "which voice is live"
-  // moment. Always on: the multi-provider mix IS the showcase.
-  for (const turn of input.turns) {
-    const host = hostById.get(turn.hostId);
-    if (!host) continue;
-    const provider = providerOf(host);
-    const start = r2(turn.start);
-    const dur = r2(Math.min(2.6, Math.max(1.4, turn.end - turn.start)));
-    overlays.push(overlay(`chip-${turn.turnIndex}`, "chipwrap", start, dur, 18, chipInner(host, provider)));
-    fade(tl, `#chip-${turn.turnIndex}`, start, dur, 0.3, 0.4);
-  }
-
   // Cues
   for (const cue of input.cues) {
     const host = cue.hostId ? hostById.get(cue.hostId) : undefined;
@@ -271,15 +259,6 @@ export function buildComposition(input: BuildInput): string {
 }
 
 // ── Inner-HTML fragments ──────────────────────────────────────────────────────
-
-function chipInner(host: Host, provider: string): string {
-  return `      <div class="now-chip" style="--ch:${providerColor(provider)}">
-        <span class="live-dot"></span>
-        <span class="chip-name">${esc(host.name)}</span>
-        <span class="chip-sep">·</span>
-        <span class="chip-model">${esc(host.model)}</span>
-      </div>`;
-}
 
 function cueInner(cue: Cue & { image?: string }, color: string): string {
   if (cue.type === "broll" && cue.image) {
@@ -347,19 +326,10 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;
 .seg-video{z-index:2}
 .overlay{position:absolute;inset:0;pointer-events:none}
 /* Visual stacking is CSS z-index (data-track-index does NOT layer). Bottom→top:
-   video(0) < cards incl. b-roll(20) < chips(24) < captions(50). B-roll is a
+   video(0) < cards incl. b-roll(20) < captions(50). B-roll is a
    centered card (not full-screen), so it shares the same tier as stat/quote/l3. */
 .cue{z-index:20}
-.chipwrap{z-index:24}
 .caption{z-index:50}
-
-.now-chip{position:absolute;left:64px;bottom:220px;display:flex;align-items:center;gap:16px;
-  padding:18px 28px;background:rgba(16,15,14,.8);border:1px solid var(--hairline);
-  border-left:4px solid var(--ch);box-shadow:0 18px 50px rgba(0,0,0,.45)}
-.now-chip .live-dot{width:16px;height:16px;border-radius:50%;background:var(--ch);box-shadow:0 0 18px var(--ch)}
-.chip-name{font-size:34px;font-weight:700;color:var(--text)}
-.chip-sep{color:var(--text-2);font-size:30px}
-.chip-model{font-family:'Geist Mono',monospace;font-size:25px;color:var(--text-2);letter-spacing:.01em}
 
 /* The scrim keeps every caption state readable over bright b-roll or light
    video — the studio preview shows the same gradient (they must agree). */

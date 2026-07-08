@@ -139,7 +139,7 @@ function Providers() {
         <SectionHead
           kicker="THE MIX"
           title="Any voices. Any providers. One conversation."
-          sub="This is the whole point. Give each host a different provider and Speechbase returns a single, leveled, word-aligned track. The video tags who's talking — in their provider's color."
+          sub="This is the whole point. Give each host a different provider and Speechbase returns a single, leveled, word-aligned track — one clean conversation, whoever you cast."
         />
         <div className="mt-12 flex flex-wrap gap-3">
           {PROVIDERS.map((p) => (

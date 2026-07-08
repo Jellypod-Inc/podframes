@@ -17,9 +17,8 @@ rendered video composition (HyperFrames) read from it. It is intentionally align
 **The patch bay.** podframes routes *different TTS providers into one conversation* — so the
 recurring motif is a **studio patch bay / mixing console**: each provider is a colored "patch
 cable" / channel, and a conversation is those channels routed into a single stereo bus. It shows
-up as the hero on the landing page, as the voice-channel picker in the studio, and as the
-provider tags in the rendered video's lower-thirds. Spend the boldness here; keep everything else
-quiet and disciplined.
+up as the hero on the landing page and as the voice-channel picker in the studio. Spend the
+boldness here; keep everything else quiet and disciplined.
 
 ---
 
