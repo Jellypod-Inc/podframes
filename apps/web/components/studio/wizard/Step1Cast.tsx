@@ -56,7 +56,7 @@ export function Step1Cast() {
     if (paid.length && !(await ctx.confirm({
       title: "Change resolution?",
       body: `Switching to ${r} changes the base images and every generated clip.`,
-      details: [`Will clear: ${paid.join(", ")}.`, r === "1080p" ? "1080p costs more on P-Video." : "You can regenerate at 720p after this change."],
+      details: [`Will clear: ${paid.join(", ")}.`, r === "1080p" ? "1080p costs more on P-Video Avatar." : "You can regenerate at 720p after this change."],
       confirmLabel: "Change resolution",
       tone: "warn",
     }))) return;
@@ -82,7 +82,7 @@ export function Step1Cast() {
           ))}
         </div>
         <span className="text-[11px] text-[var(--color-text-muted)]">
-          {aspect === "9:16" ? "portrait" : "landscape"}{resolution === "1080p" ? " · 1080p costs more on P-Video" : ""}
+          {aspect === "9:16" ? "portrait" : "landscape"}{resolution === "1080p" ? " · 1080p costs more on P-Video Avatar" : ""}
         </span>
       </div>
 

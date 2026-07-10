@@ -87,8 +87,8 @@ export interface ConversationConfig {
 export interface PipelineOptions {
   /**
    * Which animation backend.
-   * - `replicate-p-video` (default): Replicate's Pruna AI p-video — one clip per
-   *   turn, lip-synced to that turn's real audio. Cheaper/faster.
+   * - `replicate-p-video` (default): Replicate's Pruna AI p-video-avatar — one clip
+   *   per turn, lip-synced to that turn's real audio. Cheaper/faster.
    * - `fal-ltx`: fal LTX-2.3 audio-to-video — same per-turn shape, higher-quality
    *   alternative with more natural variety.
    */

@@ -2,7 +2,7 @@
  * @podframes/core — topic → animated AI podcast video.
  *
  * Pipeline: script (Gemini) → speech (Speechbase multi-provider conversation) →
- * stills/base avatars → video (P-Video or LTX) → b-roll cues (Gemini) →
+ * stills/base avatars → video (P-Video Avatar or LTX) → b-roll cues (Gemini) →
  * compose (HyperFrames HTML) → render (MP4).
  */
 

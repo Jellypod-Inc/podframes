@@ -111,7 +111,7 @@ export const INVALIDATION = {
 export const VIDEO_PROVIDERS = [
   {
     id: "replicate-p-video",
-    label: "P-Video",
+    label: "P-Video Avatar",
     vendor: "Replicate",
     blurb: "Default cheaper, faster per-turn lip-sync.",
     envKey: "REPLICATE_API_KEY",
@@ -130,13 +130,13 @@ export type VideoProviderId = (typeof VIDEO_PROVIDERS)[number]["id"];
 /**
  * Published per-second animation prices (checked 2026-07 — see each provider's
  * pricing page; update here when they move):
- *   fal.ai LTX-2.3 audio-to-video: $0.10/s (all resolutions)  — fal.ai/models/fal-ai/ltx-2.3/audio-to-video
- *   Replicate prunaai/p-video:     $0.02/s 720p · $0.04/s 1080p — replicate.com/prunaai/p-video
+ *   fal.ai LTX-2.3 audio-to-video:  $0.10/s (all resolutions)     — fal.ai/models/fal-ai/ltx-2.3/audio-to-video
+ *   Replicate prunaai/p-video-avatar: $0.025/s 720p · $0.045/s 1080p — replicate.com/prunaai/p-video-avatar
  * Used for the pre-generation cost estimate in the studio — an ESTIMATE, not a quote.
  */
 export const PRICING: Record<VideoProviderId, { perSecond: Record<"720p" | "1080p", number> }> = {
   "fal-ltx": { perSecond: { "720p": 0.1, "1080p": 0.1 } },
-  "replicate-p-video": { perSecond: { "720p": 0.02, "1080p": 0.04 } },
+  "replicate-p-video": { perSecond: { "720p": 0.025, "1080p": 0.045 } },
 };
 
 /** Estimated $ to animate `seconds` of clips on a provider at a resolution. */
