@@ -123,8 +123,9 @@ export class Project {
   }
 
   /**
-   * Load an existing project by slug WITHOUT touching its config or options —
-   * the persisted state is the source of truth. Returns null when absent.
+   * Load an existing project by slug without applying new config overrides.
+   * Missing non-breaking option defaults are filled in memory so older v3
+   * projects keep opening when a new optional output treatment is introduced.
    * This is what quick-edit routes and re-runs should use; {@link open} is the
    * create-or-resume entry for a fresh generate call.
    */
@@ -133,6 +134,7 @@ export class Project {
     if (!fileExists(statePath)) return null;
     const state = await readJson<ProjectState>(statePath);
     checkSchema(state, slug);
+    state.options = mergeOptions(state.options);
     return new Project(state, root);
   }
 

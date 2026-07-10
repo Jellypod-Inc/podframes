@@ -34,6 +34,7 @@ export const DEFAULT_OPTIONS: PipelineOptions = {
   replicateVideoModel: MODELS.replicateVideoModel,
   videoResolution: "720p",
   gapMs: 320,
+  visualTreatment: "minimal",
   maxCues: 10,
   renderQuality: "high",
   fps: 30,

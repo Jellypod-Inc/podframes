@@ -14,6 +14,7 @@ import {
   type ConversationConfig,
   type Host,
   type StageName,
+  type VisualTreatment,
 } from "@podframes/core";
 
 const HELP = `
@@ -38,6 +39,7 @@ OPTIONS
   --host-b "<name|model|voice>"   e.g. "Theo|elevenlabs/eleven_v3|JBFqn..."
 
   --provider <p>       Video backend: replicate-p-video (default, cheaper) | fal-ltx (higher-quality alt)
+  --treatment <t>      minimal (default) | editorial | cinematic
   --captions <s>       clean | karaoke | highlight | neon | slam | bold | gradient | boxed
   --resolution <r>     720p (default) | 1080p
   --draft              Fast, lower-quality render (good for iterating)
@@ -128,6 +130,7 @@ async function main(): Promise<void> {
       "host-a": { type: "string" },
       "host-b": { type: "string" },
       provider: { type: "string" },
+      treatment: { type: "string" },
       captions: { type: "string" },
       resolution: { type: "string" },
       draft: { type: "boolean" },
@@ -168,6 +171,7 @@ async function main(): Promise<void> {
       ...(values.language ? { language: values.language } : {}),
       options: {
         ...(values.provider ? { videoProvider: values.provider as "fal-ltx" | "replicate-p-video" } : {}),
+        ...(values.treatment ? { visualTreatment: values.treatment as VisualTreatment } : {}),
         ...(values.captions ? { captionStyle: values.captions as CaptionStyle } : {}),
         ...(values.resolution ? { videoResolution: values.resolution === "1080p" ? "1080p" : "720p" } : {}),
         ...(values.draft ? { renderQuality: "draft" as const } : {}),

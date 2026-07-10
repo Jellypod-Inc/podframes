@@ -5,6 +5,7 @@ import {
   clearTurnClips,
   INVALIDATION,
   mergeOptions,
+  optionInvalidations,
   validateOptions,
   STAGE_NAMES,
   withProjectLock,
@@ -64,7 +65,7 @@ interface PatchBody {
   script?: Script;
   /** Edited b-roll cues. */
   cues?: Cue[];
-  /** Option edits (captionStyle / captionColor / videoProvider / videoResolution / renderQuality). */
+  /** Option edits (visual treatment / captions / video provider / resolution / render quality). */
   options?: Partial<PipelineOptions>;
   /** Non-destructive visual trims for generated clips. Does not re-run animation. */
   clipTrims?: { id: string; trimStartSec?: number; trimEndSec?: number }[];
@@ -211,19 +212,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ slug: 
       add(INVALIDATION.broll);
     }
 
-    // ── Options (captions / video provider / resolution) ──
+    // ── Options (visual treatment / captions / video provider / resolution) ──
+    // optionInvalidations is the shared option→stage map (the CLI generate path
+    // uses the same one, so a flag and a studio edit invalidate identically).
     if (body.options) {
-      const o = s.options;
-      const captiony = (["captionStyle", "captionColor"] as const).some(
-        (k) => body.options![k] !== undefined && body.options![k] !== o[k],
-      );
-      const providerChanged = body.options.videoProvider !== undefined && body.options.videoProvider !== o.videoProvider;
-      const resolutionChanged =
-        body.options.videoResolution !== undefined && body.options.videoResolution !== o.videoResolution;
-      s.options = mergeOptions({ ...o, ...body.options });
-      if (captiony) add(INVALIDATION.captions);
-      if (providerChanged) add(INVALIDATION.videoProvider);
-      if (resolutionChanged) add(INVALIDATION.videoResolution);
+      add(optionInvalidations(s.options, body.options));
+      s.options = mergeOptions({ ...s.options, ...body.options });
     }
 
     // ── Clip trims (visual-only edit) ──

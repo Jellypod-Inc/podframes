@@ -20,8 +20,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       let closed = false;
-      let heartbeat: ReturnType<typeof setInterval> | undefined;
       let unsubscribe: (() => void) | null = null;
+      // Heartbeat every 10s so proxies can't kill a silent render — started
+      // immediately (close() clears it, even on the already-finished path).
+      const heartbeat = setInterval(() => {
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`: ping\n\n`));
+        } catch {
+          close();
+        }
+      }, 10_000);
       const send = (e: RunEvent) => {
         if (closed) return;
         try {
@@ -33,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       const close = () => {
         if (closed) return;
         closed = true;
-        if (heartbeat) clearInterval(heartbeat);
+        clearInterval(heartbeat);
         unsubscribe?.();
         try {
           controller.close();
@@ -54,15 +63,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       for (const e of run.events.slice(0, snapshotLen)) send(e);
       // Already finished before we attached → replay carried the terminal event.
       if (run.status !== "running") return close();
-
-      heartbeat = setInterval(() => {
-        if (closed) return;
-        try {
-          controller.enqueue(encoder.encode(`: ping\n\n`));
-        } catch {
-          close();
-        }
-      }, 10_000);
 
       req.signal.addEventListener("abort", close);
     },

@@ -108,6 +108,23 @@ A five‑step wizard over the same pipeline the CLI runs, with the receipts visi
 
 <img src=".github/assets/studio.png" alt="The podframes studio — script editing with a live lip-synced preview" width="100%" />
 
+### Visual treatments
+
+The original composition remains the default, with two richer opt-in cuts that reuse the same
+voices, avatar clips, trims, captions, and B-roll assets:
+
+| Treatment | What changes | Cue rhythm |
+| --- | --- | --- |
+| **Minimal** | Original talking-host cut with compact supporting cards | ≈1–2/min |
+| **Editorial** | Designed cold open, alternating graphic zones, larger stat/B-roll cards | ≈4/min |
+| **Cinematic** | Full-frame visual takeovers, bold typography, dense story treatment | ≈6/min |
+
+Switching treatment invalidates only composition + render — it never re-buys speech or lip-sync
+video, so it restyles the beats you already have. To get a treatment's full cue density on an
+existing episode, re-suggest the beats afterwards (**Suggest beats** in the studio, or
+`--only broll --force` then `--from compose` in the CLI). Pick the treatment in
+**B-roll & captions**, or use `--treatment editorial|cinematic` in the CLI.
+
 ## Video providers
 
 Both are **per‑turn audio‑to‑video with real lip‑sync** — each line becomes its own clip, driven

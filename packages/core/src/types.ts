@@ -8,6 +8,9 @@
 
 export type AspectRatio = "16:9" | "9:16";
 
+/** How aggressively the final composition editorializes the generated host footage. */
+export type VisualTreatment = "minimal" | "editorial" | "cinematic";
+
 /** Caption visual styles (per-word karaoke timing, different looks). */
 export type CaptionStyle =
   | "clean"
@@ -109,7 +112,9 @@ export interface PipelineOptions {
   videoResolution: "720p" | "1080p";
   /** Silence between conversation turns, ms. */
   gapMs: number;
-  /** Hard ceiling on b-roll/overlay cues (the effective budget is also capped at ~1.5/min). */
+  /** Visual composition mode. `minimal` preserves the original sparse podcast treatment. */
+  visualTreatment: VisualTreatment;
+  /** Hard ceiling on b-roll/overlay cues (the effective budget depends on visualTreatment). */
   maxCues: number;
   /** Final render quality. */
   renderQuality: "draft" | "standard" | "high";
