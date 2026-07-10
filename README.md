@@ -38,7 +38,7 @@ audio** with P‑Video by default, and renders a captioned MP4 with
     ├─▶  ② speech    Speechbase           mix any providers → one leveled conversation
     │                                      + word-level alignment timestamps
     ├─▶  ③ avatars   Nano Banana 2        one base avatar image per host
-    ├─▶  ④ animate   P-Video | LTX-2.3    per-turn lip-synced clips
+    ├─▶  ④ animate   P-Video Avatar | LTX-2.3   per-turn lip-synced clips
     ├─▶  ⑤ b-roll    Gemini + NB2 Lite    sparse cues from the aligned transcript
     ├─▶  ⑥ compose   HyperFrames HTML     timed clips + audio + captions + b-roll
     └─▶  ⑦ render    HyperFrames          → output.mp4
@@ -115,7 +115,7 @@ by that turn's actual Speechbase audio. Pick with `--provider` (CLI) or one clic
 
 | Provider | id | Fidelity | Price | Notes |
 | --- | --- | --- | --- | --- |
-| **P‑Video** (Replicate) | `replicate-p-video` | good | ≈$0.02/s @720p · ≈$0.04/s @1080p | **Default.** Cheaper, faster |
+| **P‑Video Avatar** (Replicate) | `replicate-p-video` | good | ≈$0.025/s @720p · ≈$0.045/s @1080p | **Default.** Cheaper, faster |
 | **LTX‑2.3** (fal.ai) | `fal-ltx` | best | ≈$0.10/s | Higher-fidelity alternative. Static locked‑off shot, prompt expansion disabled |
 
 ## Models
@@ -128,7 +128,7 @@ Centralized in [`packages/core/src/config.ts`](packages/core/src/config.ts) — 
 | cues   | `gemini-3.1-pro-preview`         | B‑roll/caption editorial judgment (same as script) |
 | avatars | `gemini-3.1-flash-image`        | **Nano Banana 2** — only for text‑described hosts (roster picks / uploads pass through) |
 | b‑roll | `gemini-3.1-flash-lite-image`    | **Nano Banana 2 Lite** — ≈4s/image, ≈$0.034/image  |
-| video  | `prunaai/p-video` (Replicate)    | **Default.** Cheaper/faster per‑turn lip‑sync      |
+| video  | `prunaai/p-video-avatar` (Replicate) | **Default.** Cheaper/faster per‑turn lip‑sync   |
 | video  | `fal-ai/ltx-2.3-quality/audio-to-video` | Alternative: LTX‑2.3, per‑turn audio‑to‑video, real lip‑sync |
 | speech | `provider/model` per turn        | via `@speech-sdk/core`, routed through Speechbase (add BYOK keys in your Speechbase account) |
 

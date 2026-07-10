@@ -45,7 +45,7 @@ export const PIPELINE: PipelineStep[] = [
     title: "Animate them",
     tech: "LTX-2.3 (fal)",
     blurb:
-      "Each line becomes its own clip, lip-synced to that turn's real audio. Swap in Replicate P-Video for a ~5× cheaper take.",
+      "Each line becomes its own clip, lip-synced to that turn's real audio. Swap in Replicate P-Video Avatar for a ~4× cheaper take.",
   },
   {
     n: "05",

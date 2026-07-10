@@ -86,7 +86,7 @@ export async function audioToVideo(args: AudioToVideoArgs): Promise<{ path: stri
     resolution: args.resolution ?? "auto",
     // CRITICAL: the endpoint defaults enable_prompt_expansion to TRUE — an LLM
     // rewrite that re-adds cinematic camera moves (push-ins, zooms) and undoes
-    // the locked-off framing our prompt demands. Same trap as p-video's
+    // the locked-off framing our prompt demands. Same trap as p-video-avatar's
     // prompt_upsampling. Our exact words must reach the model.
     enable_prompt_expansion: false,
     // High first-frame adherence: the podcast shot must HOLD the input framing

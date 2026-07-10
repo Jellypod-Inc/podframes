@@ -10,28 +10,21 @@ const DOWNLOAD_TIMEOUT_MS = 3 * 60_000;
 
 export interface AudioToVideoArgs {
   apiKey: string;
-  /** e.g. `prunaai/p-video`. */
+  /** e.g. `prunaai/p-video-avatar`. */
   model: string;
   /** First-frame still (sets identity/pose). */
   imagePath: string;
   /** Driving audio — the model lip-syncs to this and takes the clip's duration from it. */
   audioPath: string;
+  /** Visual direction for the clip — maps to p-video-avatar's `video_prompt`. */
   prompt: string;
   resolution?: "720p" | "1080p";
-  /** p-video only accepts 24 or 48 — nearest is picked. */
-  fps?: number;
-  /** 4x faster preview mode, lower quality. */
-  draft?: boolean;
   seed?: number;
   outputPath: string;
   onLog?: (msg: string) => void;
 }
 
-function fpsFor(fps?: number): 24 | 48 {
-  return fps != null && fps >= 36 ? 48 : 24;
-}
-
-// p-video's output schema isn't consistently documented across SDK versions — the JS client can
+// p-video-avatar's output schema isn't consistently documented across SDK versions — the JS client can
 // hand back a plain URL string, an array of them, or a FileOutput object exposing .url().
 function extractUrl(output: unknown): string | undefined {
   if (typeof output === "string") return output;
@@ -46,21 +39,20 @@ function extractUrl(output: unknown): string | undefined {
 
 /**
  * Animate a still into a talking clip that lip-syncs to the provided audio, via Replicate's
- * Pruna AI p-video (image+audio → video). The cheaper/faster default path with the same
- * per-turn shape: no `negative_prompt` or image-strength support in the schema, so keep the
- * conditioning image neutral and disable `prompt_upsampling` to avoid prompt rewrites.
+ * Pruna AI p-video-avatar (image+audio → video). The cheaper/faster default path with the same
+ * per-turn shape. We always drive it with real `audio`, so the model's `voice_script`/`voice`
+ * text-to-speech path is bypassed. `disable_prompt_upsampling: true` uses our `video_prompt`
+ * verbatim (no auto-rewrite) — the locked-off framing our prompt demands must not be "enhanced".
  */
 export async function audioToVideo(args: AudioToVideoArgs): Promise<{ path: string; seed?: number }> {
   const replicate = new Replicate({ auth: args.apiKey });
 
   const input: Record<string, unknown> = {
-    prompt: args.prompt,
+    video_prompt: args.prompt,
     image: await imageDataUri(args.imagePath),
     audio: await audioDataUri(args.audioPath),
     resolution: args.resolution ?? "720p",
-    fps: fpsFor(args.fps),
-    draft: !!args.draft,
-    prompt_upsampling: false,
+    disable_prompt_upsampling: true,
     ...(args.seed != null ? { seed: args.seed } : {}),
   };
 
@@ -71,7 +63,7 @@ export async function audioToVideo(args: AudioToVideoArgs): Promise<{ path: stri
     `replicate ${args.model}`,
   );
   const url = extractUrl(output);
-  if (!url) throw new Error("Replicate p-video returned no output url");
+  if (!url) throw new Error("Replicate p-video-avatar returned no output url");
 
   const res = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Replicate video download failed: ${res.status} ${res.statusText}`);

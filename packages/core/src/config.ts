@@ -20,8 +20,8 @@ export const MODELS = {
   brollImageModel: "gemini-3.1-flash-lite-image",
   /** fal LTX-2.3 — audio-to-video, per-turn lip-synced animation. */
   falVideoModel: "fal-ai/ltx-2.3-quality/audio-to-video",
-  /** Replicate / Pruna AI p-video — default cheaper, faster per-turn audio-to-video. */
-  replicateVideoModel: "prunaai/p-video",
+  /** Replicate / Pruna AI p-video-avatar — default cheaper, faster per-turn audio-to-video. */
+  replicateVideoModel: "prunaai/p-video-avatar",
 } as const;
 
 export const DEFAULT_OPTIONS: PipelineOptions = {
@@ -74,7 +74,7 @@ export interface ResolvedEnv {
   geminiApiKey?: string;
   /** fal.ai key (used for LTX audio-to-video). */
   falApiKey?: string;
-  /** Replicate key (used for the default p-video audio-to-video path). */
+  /** Replicate key (used for the default p-video-avatar audio-to-video path). */
   replicateApiKey?: string;
 }
 

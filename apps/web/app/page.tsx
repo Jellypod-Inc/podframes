@@ -58,7 +58,7 @@ function Hero() {
             <span>·</span>
             <span>Nano Banana 2</span>
             <span>·</span>
-            <span>P-Video lip-sync</span>
+            <span>P-Video Avatar lip-sync</span>
             <span>·</span>
             <span>HyperFrames</span>
           </div>
@@ -174,10 +174,10 @@ function Constraint() {
       />
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
         <div className="panel p-7">
-          <h3 className="text-lg font-bold text-[var(--color-success)]">P-Video · default</h3>
+          <h3 className="text-lg font-bold text-[var(--color-success)]">P-Video Avatar · default</h3>
           <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-            One clip per line on Replicate&apos;s Pruna AI p-video, <strong className="text-[var(--color-text)]">lip-synced
-            to that turn&apos;s real audio</strong>. Faster and ~5× cheaper (~$0.02/s at 720p), with per-clip regeneration.
+            One clip per line on Replicate&apos;s Pruna AI p-video-avatar, <strong className="text-[var(--color-text)]">lip-synced
+            to that turn&apos;s real audio</strong>. Faster and ~4× cheaper (~$0.025/s at 720p), with per-clip regeneration.
           </p>
         </div>
         <div className="panel p-7">

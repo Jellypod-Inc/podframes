@@ -305,8 +305,6 @@ async function runVideoReplicate(ctx: StageContext): Promise<void> {
       audioPath,
       prompt,
       resolution: options.videoResolution,
-      fps: options.fps,
-      draft: options.renderQuality === "draft",
       seed,
       outputPath,
       onLog: () => {},
