@@ -139,6 +139,7 @@ export async function runCompose(ctx: StageContext): Promise<void> {
     captions,
     cues: timedCues,
     hostAvatars,
+    visualTreatment: options.visualTreatment,
     captionStyle: options.captionStyle,
     captionColor: options.captionColor,
   });

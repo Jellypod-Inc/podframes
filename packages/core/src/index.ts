@@ -31,6 +31,10 @@ export {
   PROVIDER_COLOR_FALLBACK,
   providerColor,
   CAPTION_STYLE_PRESETS,
+  VISUAL_TREATMENTS,
+  visualTreatmentPreset,
+  TREATMENT_INTRO,
+  optionInvalidations,
   CANVAS,
   VIDEO_PROVIDERS,
 } from "./shared";
@@ -39,6 +43,7 @@ export type { VideoProviderId } from "./shared";
 export { providerOf } from "./types";
 export type {
   AspectRatio,
+  VisualTreatment,
   CaptionStyle,
   ProviderId,
   Host,
@@ -75,7 +80,7 @@ export { clearStages, clearTurnClips, clearSpeechTurns, STAGE_ARTIFACTS, INVALID
 
 // Per-project write coordination (prevents concurrent edits/runs from corrupting project.json)
 export { withProjectLock, isProjectBusy, isRunActive, runLockFile } from "./util/lock";
-export { brollImagePrompt, brollImagePath } from "./stages/broll";
+export { brollImagePrompt, brollImagePath, brollImageGeometry } from "./stages/broll";
 export { castHost } from "./stages/stills";
 
 // Performance direction (inline audio tags + ElevenLabs stability)

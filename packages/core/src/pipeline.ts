@@ -1,6 +1,7 @@
 import { GeminiClient } from "./clients/gemini";
 import { resolveEnv } from "./config";
 import { clearStages } from "./editing";
+import { optionInvalidations } from "./shared";
 import { Project } from "./project";
 import { validateConfig } from "./validate";
 import { Reporter } from "./util/events";
@@ -106,7 +107,20 @@ export async function generate(
   beginRun(lockSlug, runLockFile(root, lockSlug)); // refuses a second concurrent run for this project
   try {
     return await withProjectLock(lockSlug, async () => {
+      // Option overrides on an EXISTING project invalidate downstream stages
+      // exactly like the same edit made in the studio (optionInvalidations is
+      // the shared map). Without this, `--treatment cinematic` on a finished
+      // run persists the option, skips compose/render as "done", and silently
+      // returns the old video. Compare BEFORE open() merges the overrides in.
+      const prior = await Project.load(root, lockSlug).catch(() => null);
       const project = await Project.open(config, root, opts.slug);
+      if (prior && config.options) {
+        const stale = optionInvalidations(prior.state.options, config.options);
+        if (stale.length) {
+          await clearStages(project, stale);
+          await project.save();
+        }
+      }
       return runPipeline(project, opts, root);
     });
   } finally {

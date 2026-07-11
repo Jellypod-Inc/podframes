@@ -9,6 +9,7 @@
  */
 
 export type * from "./types";
+import type { PipelineOptions, StageName } from "./types";
 
 /** On-disk project.json schema version. Bumped on breaking shape changes —
  *  older shapes are REFUSED, never migrated (clean-cutover rule).
@@ -73,6 +74,51 @@ export const CAPTION_STYLE_PRESETS = [
 export const captionMaxWords = (style: string): number =>
   CAPTION_STYLE_PRESETS.find((p) => p.id === style)?.maxWords ?? 6;
 
+/**
+ * Additive output treatments. Minimal is the original podframes composition;
+ * richer modes change only cue planning + compose/render, never paid host clips.
+ */
+export const VISUAL_TREATMENTS = [
+  {
+    id: "minimal",
+    label: "Minimal",
+    description: "Original podframes cut: talking hosts with sparse supporting cards.",
+    cuesPerMinute: 1.5,
+    densityLabel: "1–2 beats / min",
+  },
+  {
+    id: "editorial",
+    label: "Editorial",
+    description: "A designed cold open, alternating graphic zones, and more visual beats.",
+    cuesPerMinute: 4,
+    densityLabel: "~4 beats / min",
+  },
+  {
+    id: "cinematic",
+    label: "Cinematic",
+    description: "Full-frame visual takeovers, bold type, and the densest story treatment.",
+    cuesPerMinute: 6,
+    densityLabel: "~6 beats / min",
+  },
+] as const;
+
+export const visualTreatmentPreset = (id: string) =>
+  VISUAL_TREATMENTS.find((preset) => preset.id === id) ?? VISUAL_TREATMENTS[0];
+
+/**
+ * Cold-open slate timing for the rich treatments. The compose builder AND the
+ * studio preview both read these — they must agree or the preview lies about
+ * when the first host frame appears.
+ */
+export const TREATMENT_INTRO = {
+  /** Slate length, capped by the episode duration. */
+  maxSec: 3.2,
+  /** Episodes at or under this get no slate (nothing left to watch after it). */
+  minEpisodeSec: 1.2,
+  /** Fade-out length at the slate's tail. */
+  fadeSec: 0.32,
+} as const;
+
 export const CANVAS = {
   "16:9": { width: 1920, height: 1080 },
   "9:16": { width: 1080, height: 1920 },
@@ -91,6 +137,7 @@ export const INVALIDATION = {
   hostVoice: ["speech", "video", "broll", "compose", "render"],
   script: ["speech", "video", "broll", "compose", "render"],
   captions: ["compose", "render"],
+  visualTreatment: ["compose", "render"],
   broll: ["compose", "render"],
   // Flip is baked into the lip-sync clips (the animator gets a mirrored still), so re-animate.
   flip: ["video", "compose", "render"],
@@ -106,6 +153,36 @@ export const INVALIDATION = {
   // resolution-independent squares and survive).
   videoResolution: ["stills", "video", "compose", "render"],
 } as const;
+
+/** Option keys whose edit invalidates stages → the {@link INVALIDATION} entry each maps to. */
+const OPTION_INVALIDATION = {
+  captionStyle: "captions",
+  captionColor: "captions",
+  visualTreatment: "visualTreatment",
+  videoProvider: "videoProvider",
+  videoResolution: "videoResolution",
+} as const satisfies Partial<Record<keyof PipelineOptions, keyof typeof INVALIDATION>>;
+
+const STAGE_ORDER: readonly StageName[] = ["script", "speech", "stills", "video", "broll", "compose", "render"];
+
+/**
+ * Stages a partial options edit invalidates, comparing only the keys the patch
+ * actually carries. Shared by the studio PATCH route and the CLI generate path
+ * so `--treatment cinematic` on a finished project re-composes exactly like the
+ * same switch made in the studio would.
+ */
+export function optionInvalidations(
+  current: PipelineOptions,
+  patch: Partial<PipelineOptions>,
+): StageName[] {
+  const stale = new Set<StageName>();
+  for (const key of Object.keys(OPTION_INVALIDATION) as (keyof typeof OPTION_INVALIDATION)[]) {
+    if (patch[key] !== undefined && patch[key] !== current[key]) {
+      for (const stage of INVALIDATION[OPTION_INVALIDATION[key]]) stale.add(stage);
+    }
+  }
+  return STAGE_ORDER.filter((stage) => stale.has(stage));
+}
 
 /** The animation backends the studio + CLI render pickers/help from. */
 export const VIDEO_PROVIDERS = [

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { captionMaxWords } from "@podframes/core/shared";
+import { captionMaxWords, TREATMENT_INTRO } from "@podframes/core/shared";
 import {
   buildTrimmedTimeline,
   mapCuesToTrimmedTimeline,
@@ -15,7 +15,7 @@ import { useTransport } from "@/components/studio/transport";
 import { rosterThumb } from "@/lib/roster";
 import { useWizard } from "./context";
 import { hostFace } from "./cast";
-import type { CaptionStyle, WordTs } from "@podframes/core";
+import type { CaptionStyle, VisualTreatment, WordTs } from "@podframes/core";
 
 const EMPTY_REGIONS: TurnRegion[] = [];
 const EMPTY_CLIPS: ClipAsset[] = [];
@@ -72,7 +72,10 @@ export function Preview() {
   // laid OVER the still-visible host, so those render as an overlay, not a replacement.
   const cues: Cue[] = project?.cues ?? [];
   const timedCues = trimTimeline.hasTrim ? mapCuesToTrimmedTimeline(cues, trimTimeline.segments, displayDuration) : cues;
-  const activeCue = timedCues.find((c) => displayTime >= c.start && displayTime < c.end);
+  // Index, not just the cue — the render alternates editorial card sides by cue
+  // index (compose/builder.ts cue-side-*), and the preview must mirror that.
+  const activeCueIndex = timedCues.findIndex((c) => displayTime >= c.start && displayTime < c.end);
+  const activeCue = activeCueIndex >= 0 ? timedCues[activeCueIndex] : undefined;
   const cueColor = (c: Cue): string => {
     const host = c.hostId ? project?.config.hosts.find((h) => h.id === c.hostId) : undefined;
     return host ? providerColor(providerOfModel(host.model)) : "#22D3EE";
@@ -126,6 +129,7 @@ export function Preview() {
 
   const captionStyle = (project?.options?.captionStyle ?? "clean") as CaptionStyle;
   const captionColor = project?.options?.captionColor ?? "#22D3EE";
+  const visualTreatment = (project?.options?.visualTreatment ?? "minimal") as VisualTreatment;
   const regionFace = faceFor(region?.hostId);
   const regionFlipped = flipFor(region?.hostId);
   const regionHasTrim = !!regionClip && ((regionClip.trimStartSec ?? 0) > 0 || (regionClip.trimEndSec ?? 0) > 0);
@@ -169,8 +173,18 @@ export function Preview() {
             {/* B-roll is a centered overlay card now (matches compose/builder.ts), not a
                 full-frame takeover — the host stays visible, so a fresh speaker-switch is
                 never erased by it. */}
-            {activeCue && <CueCard cue={activeCue} color={cueColor(activeCue)} slug={slug} updatedAt={project?.updatedAt} />}
+            {activeCue && <CueCard cue={activeCue} cueIndex={activeCueIndex} color={cueColor(activeCue)} slug={slug} updatedAt={project?.updatedAt} treatment={visualTreatment} />}
             {region && <Karaoke region={region} time={displayTime} style={captionStyle} color={captionColor} />}
+            {visualTreatment !== "minimal" &&
+              displayDuration > TREATMENT_INTRO.minEpisodeSec &&
+              displayTime < Math.min(TREATMENT_INTRO.maxSec, displayDuration) && (
+                <TreatmentIntro
+                  title={project?.title || project?.config.topic || "Untitled episode"}
+                  hook={project?.hook || "A podframes conversation"}
+                  time={displayTime}
+                  duration={displayDuration}
+                />
+              )}
             <span className="mono absolute left-2 top-2 border border-[var(--color-hairline)] bg-[#100f0ecc] px-1.5 py-0.5 text-[9px] text-[var(--color-text-muted)]">
               {hasFinal ? (hasTrimDrafts ? "DRAFT · TRIM" : "DRAFT") : regionClip ? (regionHasTrim ? "PREVIEW · TRIM" : "PREVIEW · CLIP") : "PREVIEW · STILL"}
             </span>
@@ -374,15 +388,30 @@ function ClipRail({ regions, started, finished }: { regions: TurnRegion[]; start
 }
 
 /** stat/quote/lower-third cards, mirroring compose/builder.ts's cueInner() so the preview
- *  matches what the real render actually draws over the (still-visible) host. */
-function CueCard({ cue, color, slug, updatedAt }: { cue: Cue; color: string; slug: string | null; updatedAt?: string }) {
+ *  matches what the real render actually draws over the (still-visible) host.
+ *  `cueIndex` drives the editorial side alternation — same modulo as the render. */
+function CueCard({ cue, cueIndex, color, slug, updatedAt, treatment }: { cue: Cue; cueIndex: number; color: string; slug: string | null; updatedAt?: string; treatment: VisualTreatment }) {
+  // Mirrors builder.ts: even cues sit right, odd cues left (editorial only).
+  const editorialSide = cueIndex % 2 === 0 ? "justify-end" : "justify-start";
   if (cue.type === "broll") {
     if (!cue.imagePath || !slug) return null;
+    if (treatment === "cinematic") {
+      return (
+        // key remounts per cue so the cue-pop entrance replays when playback
+        // jumps straight from one b-roll cue to the next (same as the card path).
+        <div key={cue.id} className="absolute inset-0 bg-black">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={mediaUrl(slug, cue.imagePath, updatedAt)} alt="" className="cue-pop h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-black/25" />
+          {cue.title && <div className="absolute inset-x-5 bottom-[17%] border-l-4 pl-3 text-lg font-extrabold leading-tight text-white" style={{ borderColor: color }}>{cue.title}</div>}
+        </div>
+      );
+    }
     return (
-      <div className="absolute inset-0 grid place-items-center px-[8%]">
+      <div className={`absolute inset-0 flex px-[8%] ${treatment === "editorial" ? `items-start ${editorialSide} pt-[9%]` : "items-center justify-center"}`}>
         {/* cue-pop mirrors the render's GSAP entrance (scale+opacity, back.out overshoot);
             key remounts it (replaying the animation) each time you scrub into a new cue. */}
-        <div key={cue.id} className="cue-pop relative aspect-square w-[60%] max-w-[220px] overflow-hidden border border-[var(--color-hairline)] shadow-lg">
+        <div key={cue.id} className={`cue-pop relative aspect-square overflow-hidden border border-[var(--color-hairline)] shadow-lg ${treatment === "editorial" ? "w-[70%] max-w-[250px]" : "w-[60%] max-w-[220px]"}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={mediaUrl(slug, cue.imagePath, updatedAt)} alt="" className="h-full w-full object-cover" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/75" />
@@ -398,8 +427,8 @@ function CueCard({ cue, color, slug, updatedAt }: { cue: Cue; color: string; slu
   }
   if (cue.type === "stat") {
     return (
-      <div className="absolute inset-0 grid place-items-center px-6">
-        <div className="flex flex-col items-center gap-1 border border-[var(--color-hairline)] bg-[#181715dd] px-6 py-5 text-center shadow-lg">
+      <div className={`absolute inset-0 flex px-6 ${treatment === "cinematic" ? "items-center bg-[#100f0ef2]" : treatment === "editorial" ? `items-start ${editorialSide} pt-[10%]` : "items-center justify-center"}`}>
+        <div className={`flex flex-col gap-1 border border-[var(--color-hairline)] bg-[#181715ed] px-6 py-5 shadow-lg ${treatment === "cinematic" ? "w-full items-start text-left" : "items-center text-center"}`}>
           <div className="text-3xl font-extrabold leading-none" style={{ color }}>{cue.figure || cue.title || ""}</div>
           {cue.title && cue.figure && <div className="text-[13px] font-bold text-white">{cue.title}</div>}
           {cue.subtitle && <div className="text-[11px] text-white/70">{cue.subtitle}</div>}
@@ -409,7 +438,7 @@ function CueCard({ cue, color, slug, updatedAt }: { cue: Cue; color: string; slu
   }
   if (cue.type === "quote") {
     return (
-      <div className="absolute inset-0 grid place-items-center px-9 text-center">
+      <div className={`absolute inset-0 grid place-items-center px-9 text-center ${treatment === "cinematic" ? "bg-[#100f0ef2]" : ""}`}>
         <div>
           <div className="text-4xl font-extrabold leading-none opacity-50" style={{ color }}>&ldquo;</div>
           <div className="-mt-2 text-[15px] font-bold leading-snug text-white">{cue.title}</div>
@@ -420,11 +449,29 @@ function CueCard({ cue, color, slug, updatedAt }: { cue: Cue; color: string; slu
   }
   // lower-third
   return (
-    <div className="absolute inset-x-3 bottom-[12%] flex items-stretch gap-2.5 border border-[var(--color-hairline)] bg-[#100f0ed1] px-3 py-2">
+    <div className={`absolute bottom-[12%] flex items-stretch gap-2.5 border border-[var(--color-hairline)] bg-[#100f0ee8] px-3 py-2 ${treatment === "minimal" ? "inset-x-3" : "inset-x-[8%]"}`}>
       <span className="w-1 shrink-0" style={{ background: color }} />
       <div className="min-w-0">
         <div className="truncate text-[13px] font-bold text-white">{cue.title}</div>
         {cue.subtitle && <div className="truncate text-[10px] text-white/70">{cue.subtitle}</div>}
+      </div>
+    </div>
+  );
+}
+
+function TreatmentIntro({ title, hook, time, duration }: { title: string; hook: string; time: number; duration: number }) {
+  // Mirror the render's tail fade (builder.ts fades the slate out over
+  // TREATMENT_INTRO.fadeSec) so scrubbing near 3s previews the same frame.
+  const introDur = Math.min(TREATMENT_INTRO.maxSec, duration);
+  const fadeStart = introDur - TREATMENT_INTRO.fadeSec;
+  const opacity = time <= fadeStart ? 1 : Math.max(0, (introDur - time) / TREATMENT_INTRO.fadeSec);
+  return (
+    <div className="absolute inset-0 flex flex-col justify-center overflow-hidden bg-[var(--color-bg)] px-[9%] text-left" style={{ opacity }}>
+      <div className="absolute inset-0 opacity-40" style={{ backgroundImage: "linear-gradient(var(--color-hairline) 1px, transparent 1px), linear-gradient(90deg, var(--color-hairline) 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+      <div className="cue-pop relative">
+        <div className="text-[28px] font-extrabold leading-[0.98] tracking-[-0.035em] text-[var(--color-text)]">{title}</div>
+        <div className="mt-3 max-w-[90%] text-[12px] leading-snug text-[var(--color-text-secondary)]">{hook}</div>
+        <div className="mt-5 h-1 w-[62%] bg-[var(--color-accent)]" />
       </div>
     </div>
   );

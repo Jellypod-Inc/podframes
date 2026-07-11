@@ -1,5 +1,5 @@
 import { rm } from "node:fs/promises";
-import { Project, GeminiClient, resolveEnv, clearStages, brollImagePrompt, brollImagePath, withProjectLock } from "@podframes/core";
+import { Project, GeminiClient, resolveEnv, clearStages, brollImagePrompt, brollImagePath, brollImageGeometry, withProjectLock } from "@podframes/core";
 import { findRepoRoot, safeSlug } from "@/lib/root";
 import { isRunActiveAnywhere } from "@/lib/runs";
 import { projectSummary } from "@/lib/dto";
@@ -41,17 +41,18 @@ export async function POST(
 
     // Content-addressed name (same scheme as the batch stage): a prompt change
     // regenerates under a new name; re-rolling the SAME prompt replaces the file.
+    // Geometry follows the treatment (square card vs cinematic full-frame),
+    // exactly like the batch stage, so a regen never mismatches the composition.
+    const geometry = brollImageGeometry(s.options.visualTreatment, s.config.aspectRatio);
     const prior = cue.imagePath;
-    const rel = brollImagePath(cue);
+    const rel = brollImagePath(cue, geometry.aspectRatio);
     const outPath = project.abs(rel);
     await rm(outPath, { force: true });
-    // Always square — matches the fixed-square compose card (see compose/builder.ts
-    // .broll-card), independent of the video's own aspect ratio.
     await gemini.generateImageToFile({
       model: s.options.brollImageModel,
       prompt: brollImagePrompt(cue.imagePrompt),
-      aspectRatio: "1:1",
-      imageSize: "1K",
+      aspectRatio: geometry.aspectRatio,
+      imageSize: geometry.imageSize,
       outputPath: outPath,
     });
     cue.imagePath = rel;

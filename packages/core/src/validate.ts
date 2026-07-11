@@ -1,5 +1,5 @@
 import { DEFAULT_OPTIONS } from "./config";
-import { CAPTION_STYLE_PRESETS, VIDEO_PROVIDERS } from "./shared";
+import { CAPTION_STYLE_PRESETS, VIDEO_PROVIDERS, VISUAL_TREATMENTS } from "./shared";
 import type { ConversationConfig, Host, PipelineOptions } from "./types";
 
 /**
@@ -75,6 +75,7 @@ export function validateOptions(options: Partial<PipelineOptions>, fail?: (msg: 
   oneOf("renderQuality", o.renderQuality, ["draft", "standard", "high"] as const);
   oneOf("fps", o.fps, [24, 30] as const);
   oneOf("captionStyle", o.captionStyle, CAPTION_STYLE_PRESETS.map((p) => p.id));
+  oneOf("visualTreatment", o.visualTreatment, VISUAL_TREATMENTS.map((p) => p.id));
   inRange("gapMs", o.gapMs, 0, 5000);
   inRange("maxCues", o.maxCues, 0, 20);
   inRange("videoConcurrency", o.videoConcurrency, 1, 8);

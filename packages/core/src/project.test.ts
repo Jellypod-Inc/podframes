@@ -77,3 +77,20 @@ test("Project.load refuses an outdated schemaVersion (clean cutover, no migratio
     /unsupported project\.json schema.*found 2/,
   );
 });
+
+test("Project.load fills new non-breaking option defaults on an existing schema", async () => {
+  const root = await mkdtemp(join(tmpdir(), "podframes-defaults-"));
+  const config: ConversationConfig = {
+    topic: "Keep old projects opening",
+    hosts: [
+      { id: "host_a", name: "Ada", speaker: "HOST_A", model: "google/model", voice: "Aoede", side: "left" },
+      { id: "host_b", name: "Theo", speaker: "HOST_B", model: "google/model", voice: "Puck", side: "right" },
+    ],
+  };
+  const project = await Project.create(config, root, "defaults");
+  delete (project.state.options as Partial<typeof project.state.options>).visualTreatment;
+  await project.save();
+
+  const loaded = await Project.load(root, "defaults");
+  assert.equal(loaded?.state.options.visualTreatment, "minimal");
+});

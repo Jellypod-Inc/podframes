@@ -1,4 +1,5 @@
 import { Type } from "../clients/gemini";
+import { visualTreatmentPreset } from "../shared";
 import { contentHash, fileExists } from "../util/fs";
 import type { StageContext } from "./context";
 import type { Cue, CueType } from "../types";
@@ -37,9 +38,26 @@ const cueSchema = (types: CueType[]) => ({
 });
 
 /** Content-addressed image path: identical prompts reuse the file for free,
- *  changed prompts regenerate automatically — stale reuse is impossible. */
-export function brollImagePath(cue: Pick<Cue, "id" | "imagePrompt">): string {
-  return `broll/${cue.id}-${contentHash(cue.imagePrompt ?? "", 8)}.png`;
+ *  changed prompts regenerate automatically — stale reuse is impossible. The
+ *  aspect is part of the name (square stays suffix-free for back-compat), so a
+ *  treatment switch to full-frame can never reuse a cached square image. */
+export function brollImagePath(cue: Pick<Cue, "id" | "imagePrompt">, aspectRatio = "1:1"): string {
+  const suffix = aspectRatio === "1:1" ? "" : `-${aspectRatio.replace(":", "x")}`;
+  return `broll/${cue.id}-${contentHash(cue.imagePrompt ?? "", 8)}${suffix}.png`;
+}
+
+/** Image geometry for a treatment: cinematic promotes b-roll to FULL-FRAME
+ *  takeovers (compose/builder.ts .treatment-cinematic.broll), so its source
+ *  images must match the canvas aspect at higher resolution — a 1K square
+ *  object-cover'd into 1920×1080 crops ~44% and upscales ~1.9×. The card
+ *  treatments keep the original square inset. */
+export function brollImageGeometry(
+  visualTreatment: string,
+  aspectRatio: "16:9" | "9:16" | undefined,
+): { aspectRatio: string; imageSize: "1K" | "2K" } {
+  return visualTreatment === "cinematic"
+    ? { aspectRatio: aspectRatio ?? "16:9", imageSize: "2K" }
+    : { aspectRatio: "1:1", imageSize: "1K" };
 }
 
 export async function runBroll(ctx: StageContext): Promise<void> {
@@ -56,9 +74,13 @@ export async function runBroll(ctx: StageContext): Promise<void> {
 
   const cueTypes: CueType[] = ["broll", "lower-third", "stat", "quote"];
 
-  // Sparse by design: graphics earn their place at ~1–2 PER MINUTE, never
-  // wall-to-wall. maxCues stays the user's hard ceiling on top.
-  const budget = Math.max(1, Math.min(options.maxCues, Math.ceil((speech.durationSec / 60) * 1.5)));
+  // The original minimal treatment stays intentionally sparse. Editorial and
+  // cinematic are opt-in and raise the beat budget without changing avatar spend.
+  const treatment = visualTreatmentPreset(options.visualTreatment);
+  const budget = Math.max(
+    1,
+    Math.min(options.maxCues, Math.ceil((speech.durationSec / 60) * treatment.cuesPerMinute)),
+  );
 
   // Resume: if a previous run planned cues but failed mid-image-generation, reuse
   // the SAME plan instead of re-asking Gemini (a fresh, different cue list would
@@ -70,15 +92,18 @@ export async function runBroll(ctx: StageContext): Promise<void> {
       .join("\n");
 
     const system =
-      "You are a sharp video editor packaging a podcast. You decide where on-screen graphics earn " +
+      `You are a sharp video editor packaging a podcast in a ${treatment.label.toLowerCase()} visual treatment. ` +
+      "You decide where on-screen graphics earn " +
       "their place: b-roll for a concrete thing/place/example, a stat card for a memorable number, a " +
-      "lower-third for a key name or claim, a quote card for a punchy line. Graphics are SCARCE — " +
-      "one or two per minute at most, only for the strongest moments; most lines get nothing. " +
+      "lower-third for a key name or claim, a quote card for a punchy line. " +
+      (options.visualTreatment === "minimal"
+        ? "Graphics are scarce; most lines get nothing. "
+        : "Build a deliberate visual rhythm across the episode without covering every line. ") +
       "Times must land ON the moment the thing is said.";
 
     const contents = [
       `Episode: "${script.title}" — about ${config.topic}. Total ${speech.durationSec.toFixed(0)}s.`,
-      `Return at most ${budget} cues (~1-2 per minute), non-overlapping, each 2.5–5s, spread across the episode.`,
+      `Return at most ${budget} cues (${treatment.densityLabel}), non-overlapping, each 2.5–5s, spread across the episode.`,
       "Prefer stat cards for memorable numbers and b-roll for concrete visuals; lower-third/quote sparingly.",
       "For b-roll, write a concrete imagePrompt — and put NO text in the image.",
       "",
@@ -133,10 +158,11 @@ export async function runBroll(ctx: StageContext): Promise<void> {
     log.info(`reusing planned cue list (${cleaned.length} cues) from a previous run`);
   }
 
-  // Generate b-roll images (only for type=broll). Always SQUARE, independent of the
-  // video's own aspect ratio — the compose card is a fixed square inset (see
-  // compose/builder.ts .broll-card), not a full-frame takeover, so a square source image
-  // needs no cropping to fill it, whatever the video's own orientation is.
+  // Generate b-roll images (only for type=broll). Minimal/editorial use the fixed
+  // square compose card (see compose/builder.ts .broll-card) so a square source
+  // needs no cropping; cinematic's full-frame takeovers get canvas-aspect 2K
+  // sources instead (see brollImageGeometry).
+  const geometry = brollImageGeometry(options.visualTreatment, config.aspectRatio);
   const brollCues = cleaned.filter((c) => c.type === "broll" && c.imagePrompt);
   if (brollCues.length)
     log.info(`generating ${brollCues.length} b-roll images with ${options.brollImageModel}`);
@@ -145,7 +171,7 @@ export async function runBroll(ctx: StageContext): Promise<void> {
     if (signal?.aborted) throw new Error("run cancelled");
     // Content-addressed filename: an identical prompt reuses its image for free,
     // a changed prompt regenerates — a re-suggest can never show a stale image.
-    const rel = brollImagePath(cue);
+    const rel = brollImagePath(cue, geometry.aspectRatio);
     const outPath = project.abs(rel);
     if (!fileExists(outPath)) {
       await gemini.generateImageToFile({
@@ -153,8 +179,8 @@ export async function runBroll(ctx: StageContext): Promise<void> {
         // where volume beats per-image fidelity (host faces keep full NB2).
         model: options.brollImageModel,
         prompt: brollImagePrompt(cue.imagePrompt!),
-        aspectRatio: "1:1",
-        imageSize: "1K",
+        aspectRatio: geometry.aspectRatio,
+        imageSize: geometry.imageSize,
         outputPath: outPath,
       });
     }

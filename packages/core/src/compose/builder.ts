@@ -1,8 +1,8 @@
 import { providerOf } from "../types";
-import { BRAND, providerColor } from "../shared";
+import { BRAND, TREATMENT_INTRO, providerColor } from "../shared";
 import { planBaseTrack } from "../stages/turn-timing";
 import { fontFaceCss, type EmbeddedFont } from "./fonts";
-import type { CaptionStyle, Cue, Host, TurnRegion } from "../types";
+import type { CaptionStyle, Cue, Host, TurnRegion, VisualTreatment } from "../types";
 import type { CaptionGroup } from "./captions";
 
 /** Readable text color (dark or light) to sit ON the chosen caption color. */
@@ -74,6 +74,8 @@ export interface BuildInput {
   captionColor: string;
   /** Per-host base avatar image (composition-relative) used as the decode-race poster. */
   hostAvatars?: Record<string, string>;
+  /** Additive visual treatment. Omitted means the original minimal composition. */
+  visualTreatment?: VisualTreatment;
 }
 
 interface Tile {
@@ -90,7 +92,10 @@ const esc = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const r2 = (n: number): number => Math.round(n * 100) / 100;
 
-/** Wrap inner HTML in a timed `.clip` overlay with correct data-* timing. */
+/** Wrap inner HTML in a timed `.clip` overlay with correct data-* timing.
+ *  `allowOcclusion` opts THIS element out of the layout audit's occluded-text
+ *  check — only for elements the cold-open slate intentionally covers. Stamping
+ *  it everywhere would blind the audit to real caption-burying regressions. */
 function overlay(
   id: string,
   cls: string,
@@ -99,8 +104,9 @@ function overlay(
   track: number,
   inner: string,
   initialOpacity = 0,
+  allowOcclusion = false,
 ): string {
-  return `    <div id="${id}" class="clip overlay ${cls}" data-start="${r2(start)}" data-duration="${r2(
+  return `    <div id="${id}" class="clip overlay ${cls}"${allowOcclusion ? " data-layout-allow-occlusion" : ""} data-start="${r2(start)}" data-duration="${r2(
     Math.max(0.1, duration),
   )}" data-track-index="${track}" style="opacity:${initialOpacity}">
 ${inner}
@@ -134,6 +140,7 @@ function fade(
 
 export function buildComposition(input: BuildInput): string {
   const { width, height, durationSec } = input;
+  const treatment = input.visualTreatment ?? "minimal";
   const hostById = new Map(input.hosts.map((h) => [h.id, h]));
   // Hosts whose face is mirrored horizontally — applied as a static transform on their tiles.
   const flipped = new Set(input.hosts.filter((h) => h.flip).map((h) => h.id));
@@ -188,10 +195,21 @@ export function buildComposition(input: BuildInput): string {
   }
   const segEls = tiles
     .map((t, i) => {
-      const timing = `data-start="${t.start}" data-duration="${t.duration}" data-track-index="0"`;
+      // Fallback stills intentionally overlap their corresponding video window,
+      // so they live on a separate temporal track. CSS z-index keeps them behind.
+      const track = t.layer === "fallback" ? 1 : 0;
+      // Durations are authored EXACTLY contiguous (next.start === prev end) — never
+      // shave an epsilon off them: the runtime gates visibility to the authored
+      // window, so any authored gap is a real dropped frame where both the clip
+      // and its fallback vanish and the base poster (the FIRST host's face)
+      // flashes through. HyperFrames' overlap lint compares IEEE float sums
+      // strictly (10.74 + 15.39 → 26.130000000000003 > 26.13), so contiguous
+      // decimal windows can log a spurious same-track overlap; that lint is
+      // warn-only (see stages/render.ts) and we accept the noise over the flash.
+      const timing = `data-start="${t.start}" data-duration="${t.duration}" data-track-index="${track}"`;
       // Static mirror — independent of the renderer's time-gating + the GSAP overlay timelines.
       const flip = t.flip ? ` style="transform:scaleX(-1)"` : "";
-      const cls = `seg ${t.layer === "fallback" ? "seg-fallback" : "seg-video"}`;
+      const cls = `clip seg ${t.layer === "fallback" ? "seg-fallback" : "seg-video"}`;
       return t.kind === "img"
         ? `    <img id="seg-${i}" class="${cls}" src="${t.src}" crossorigin="anonymous" alt="" ${timing}${flip} />`
         : `    <video id="seg-${i}" class="${cls}" src="${t.src}" muted playsinline crossorigin="anonymous" ${timing}${flip}></video>`;
@@ -209,35 +227,100 @@ export function buildComposition(input: BuildInput): string {
   const overlays: string[] = [];
   const tl: string[] = [];
 
-  // Cues
-  for (const cue of input.cues) {
+  // Rich treatments open on a short designed slate over the already-generated
+  // first host clip. It changes no media timing or spend; Minimal stays on the
+  // original composition path. Elements the slate covers (opening captions/cues)
+  // get the occlusion opt-out below — introDur is that window.
+  const introDur =
+    treatment !== "minimal" && durationSec > TREATMENT_INTRO.minEpisodeSec
+      ? r2(Math.min(TREATMENT_INTRO.maxSec, durationSec))
+      : 0;
+  if (introDur > 0) {
+    overlays.push(
+      overlay(
+        "episode-open",
+        `episode-open treatment-${treatment}`,
+        0,
+        introDur,
+        18,
+        episodeOpenInner(input.title, input.hook),
+        1,
+      ),
+    );
+    tl.push(
+      `    tl.fromTo('#episode-open .open-rail', { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: 'power4.out' }, 0.08);`,
+      `    tl.fromTo('#episode-open .open-title', { x: -120, opacity: 0 }, { x: 0, opacity: 1, duration: 0.7, ease: 'power4.out' }, 0.22);`,
+      `    tl.fromTo('#episode-open .open-hook', { y: 44, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: 'circ.out' }, 0.5);`,
+      `    tl.to('#episode-open', { opacity: 0, duration: ${TREATMENT_INTRO.fadeSec}, ease: 'power2.in' }, ${r2(introDur - TREATMENT_INTRO.fadeSec)});`,
+      `    tl.set('#episode-open', { opacity: 0 }, ${introDur});`,
+    );
+  }
+
+  // Cues. Minimal retains the original compact-card choreography. Rich modes
+  // alternate zones, and Cinematic promotes image cues to full-frame moments.
+  for (const [cueIndex, cue] of input.cues.entries()) {
     const host = cue.hostId ? hostById.get(cue.hostId) : undefined;
     const color = host ? providerColor(providerOf(host)) : "#22D3EE";
     const start = r2(cue.start);
     const dur = r2(cue.end - cue.start);
     const end = r2(start + dur);
-    overlays.push(overlay(cue.id, `cue ${cue.type}`, start, dur, 12, cueInner(cue, color)));
+    const side = cueIndex % 2 === 0 ? "right" : "left";
+    // Minimal keeps the original class list byte-for-byte — the treatment/side
+    // classes only exist for the rich CSS, and emitting them on minimal would
+    // churn untouched compositions for zero visual effect.
+    const cueCls =
+      treatment === "minimal"
+        ? `cue ${cue.type}`
+        : `cue ${cue.type} treatment-${treatment} cue-side-${side}`;
+    overlays.push(
+      overlay(
+        cue.id,
+        cueCls,
+        start,
+        dur,
+        12,
+        cueInner(cue, color, treatment, cueIndex),
+        0,
+        start < introDur,
+      ),
+    );
     if (cue.type === "broll" && cue.image) {
-      // B-roll is a centered CARD now (not full-screen) — the host stays visible under it,
-      // so a speaker-switch never gets erased. It earns its own springy entrance instead of
-      // the flat cue fade: the outer wrapper just snaps opaque/hard-kills at the edges (the
-      // same seek-safety `fade()` gives every other cue), and the CARD does 100% of the
-      // visible scale+opacity pop so the two curves never compound into a muddy fade.
-      tl.push(
-        `    tl.set('#${cue.id}', { opacity: 1 }, ${start});`,
-        `    tl.fromTo('#${cue.id} .broll-card', { opacity: 0, scale: 0.82, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: 'back.out(1.6)' }, ${start});`,
-        `    tl.to('#${cue.id} .broll-card', { opacity: 0, scale: 0.9, duration: 0.35, ease: 'power2.in' }, ${r2(end - 0.35)});`,
-        `    tl.set('#${cue.id}', { opacity: 0 }, ${end});`,
-        // Slow Ken Burns so a photo never reads as a frozen frame.
-        `    tl.fromTo('#${cue.id} .broll-img', { scale: 1.02 }, { scale: 1.12, duration: ${dur}, ease: 'none' }, ${start});`,
-      );
+      tl.push(`    tl.set('#${cue.id}', { opacity: 1 }, ${start});`);
+      if (treatment === "cinematic") {
+        tl.push(
+          `    tl.fromTo('#${cue.id} .broll-card', { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 0.48, ease: 'power3.out' }, ${start});`,
+          `    tl.to('#${cue.id} .broll-card', { opacity: 0, scale: 1.03, duration: 0.28, ease: 'power2.in' }, ${r2(end - 0.28)});`,
+          `    tl.fromTo('#${cue.id} .broll-img', { scale: 1.12 }, { scale: 1.02, duration: ${dur}, ease: 'none' }, ${start});`,
+        );
+      } else if (treatment === "editorial") {
+        const enterX = side === "right" ? 110 : -110;
+        tl.push(
+          `    tl.fromTo('#${cue.id} .broll-card', { opacity: 0, x: ${enterX}, scale: 0.94 }, { opacity: 1, x: 0, scale: 1, duration: 0.55, ease: 'expo.out' }, ${start});`,
+          `    tl.to('#${cue.id} .broll-card', { opacity: 0, x: ${enterX / 2}, duration: 0.3, ease: 'power2.in' }, ${r2(end - 0.3)});`,
+          `    tl.fromTo('#${cue.id} .broll-img', { scale: 1.02 }, { scale: 1.12, duration: ${dur}, ease: 'none' }, ${start});`,
+        );
+      } else {
+        tl.push(
+          `    tl.fromTo('#${cue.id} .broll-card', { opacity: 0, scale: 0.82, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: 'back.out(1.6)' }, ${start});`,
+          `    tl.to('#${cue.id} .broll-card', { opacity: 0, scale: 0.9, duration: 0.35, ease: 'power2.in' }, ${r2(end - 0.35)});`,
+          `    tl.fromTo('#${cue.id} .broll-img', { scale: 1.02 }, { scale: 1.12, duration: ${dur}, ease: 'none' }, ${start});`,
+        );
+      }
+      tl.push(`    tl.set('#${cue.id}', { opacity: 0 }, ${end});`);
       if (cue.title) {
-        // The label lands just after the card settles — reveals during the pop compete
-        // with it and lose (see .agents/skills/hyperframes-animation/rules/scale-swap-transition.md).
         tl.push(
           `    tl.fromTo('#${cue.id} .broll-label', { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power3.out' }, ${r2(start + 0.35)});`,
         );
       }
+    } else if (cue.type === "stat" && treatment !== "minimal") {
+      tl.push(
+        `    tl.set('#${cue.id}', { opacity: 1 }, ${start});`,
+        `    tl.fromTo('#${cue.id} .stat-card', { opacity: 0, x: ${side === "right" ? 90 : -90} }, { opacity: 1, x: 0, duration: 0.5, ease: 'expo.out' }, ${start});`,
+        `    tl.fromTo('#${cue.id} .stat-figure', { opacity: 0, scale: 0.72 }, { opacity: 1, scale: 1, duration: 0.62, ease: 'back.out(1.7)' }, ${r2(start + 0.1)});`,
+        `    tl.fromTo('#${cue.id} .stat-meter-fill', { scaleX: 0 }, { scaleX: 0.76, duration: 0.8, ease: 'power3.out' }, ${r2(start + 0.3)});`,
+        `    tl.to('#${cue.id}', { opacity: 0, duration: 0.35, ease: 'power2.in' }, ${r2(end - 0.35)});`,
+        `    tl.set('#${cue.id}', { opacity: 0 }, ${end});`,
+      );
     } else {
       fade(tl, `#${cue.id}`, start, dur, 0.4, 0.4);
     }
@@ -248,7 +331,9 @@ export function buildComposition(input: BuildInput): string {
   for (const group of input.captions) {
     const start = r2(group.start);
     const dur = r2(Math.max(0.5, group.end - group.start));
-    overlays.push(overlay(group.id, `caption style-${input.captionStyle}`, start, dur, 16, captionInner(group)));
+    overlays.push(
+      overlay(group.id, `caption style-${input.captionStyle}`, start, dur, 16, captionInner(group), 0, start < introDur),
+    );
     fade(tl, `#${group.id}`, start, dur, 0.18, 0.14);
     group.words.forEach((w, wi) => {
       tl.push(`    tl.to('#${group.id} .w${wi}', ${activeVars}, ${r2(w.start)});`);
@@ -260,25 +345,38 @@ export function buildComposition(input: BuildInput): string {
 
 // ── Inner-HTML fragments ──────────────────────────────────────────────────────
 
-function cueInner(cue: Cue & { image?: string }, color: string): string {
+function cueInner(
+  cue: Cue & { image?: string },
+  color: string,
+  treatment: VisualTreatment,
+  cueIndex: number,
+): string {
+  const meta =
+    treatment === "minimal"
+      ? ""
+      : `<div class="cue-meta"><span>VISUAL ${String(cueIndex + 1).padStart(2, "0")}</span><span>${esc(cue.type.toUpperCase())}</span></div>`;
   if (cue.type === "broll" && cue.image) {
     // A centered card laid OVER the avatar video, which keeps playing underneath —
     // same tier as the stat/quote/lower-third cards below, not a full-screen takeover.
     return `      <div class="broll-card">
-        <img class="broll-img" src="${cue.image}" crossorigin="anonymous" alt="" />
+        <img class="broll-img" src="${cue.image}" crossorigin="anonymous" alt="" data-layout-allow-overflow />
         <div class="broll-scrim"></div>
+        ${meta}
         ${cue.title ? `<div class="broll-label" style="--ch:${color}"><span class="tick"></span>${esc(cue.title)}</div>` : ""}
       </div>`;
   }
   if (cue.type === "stat") {
     return `      <div class="stat-card" style="--ch:${color}">
+        ${meta}
         <div class="stat-figure">${esc(cue.figure ?? cue.title ?? "")}</div>
         ${cue.title && cue.figure ? `<div class="stat-title">${esc(cue.title)}</div>` : ""}
         ${cue.subtitle ? `<div class="stat-sub">${esc(cue.subtitle)}</div>` : ""}
+        ${treatment === "minimal" ? "" : `<div class="stat-meter"><span class="stat-meter-fill"></span></div>`}
       </div>`;
   }
   if (cue.type === "quote") {
     return `      <div class="quote-card" style="--ch:${color}">
+        ${meta}
         <div class="quote-mark">"</div>
         <div class="quote-text">${esc(cue.title ?? "")}</div>
         ${cue.subtitle ? `<div class="quote-sub">— ${esc(cue.subtitle)}</div>` : ""}
@@ -287,9 +385,20 @@ function cueInner(cue: Cue & { image?: string }, color: string): string {
   return `      <div class="l3-bar" style="--ch:${color}">
         <span class="l3-accent"></span>
         <div class="l3-text">
+          ${meta}
           <div class="l3-title">${esc(cue.title ?? "")}</div>
           ${cue.subtitle ? `<div class="l3-sub">${esc(cue.subtitle)}</div>` : ""}
         </div>
+      </div>`;
+}
+
+function episodeOpenInner(title: string, hook: string): string {
+  return `      <div class="open-grid"></div>
+      <div class="open-glow" data-layout-allow-overflow></div>
+      <div class="open-safe">
+        <div class="open-title">${esc(title)}</div>
+        <div class="open-hook">${esc(hook)}</div>
+        <div class="open-rail"></div>
       </div>`;
 }
 
@@ -330,6 +439,20 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;
    centered card (not full-screen), so it shares the same tier as stat/quote/l3. */
 .cue{z-index:20}
 .caption{z-index:50}
+.episode-open{z-index:80;background:var(--bg);overflow:hidden}
+
+/* Designed cold open for opt-in rich treatments. The patch-bay rail and meter
+   are the signature; everything else stays disciplined and square. */
+.open-grid{position:absolute;inset:0;opacity:.42;background-image:
+  linear-gradient(var(--hairline) 2px,transparent 2px),linear-gradient(90deg,var(--hairline) 2px,transparent 2px);
+  background-size:96px 96px}
+.open-glow{position:absolute;width:900px;height:900px;right:-320px;top:-360px;border-radius:50%;
+  background:radial-gradient(circle,color-mix(in srgb,var(--accent) 22%,transparent),transparent 66%)}
+.open-safe{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:96px 110px}
+.open-title{max-width:1500px;font-size:122px;font-weight:800;letter-spacing:-.045em;line-height:.94;color:var(--text)}
+.open-hook{max-width:1200px;margin-top:32px;font-size:34px;line-height:1.25;color:var(--text-2)}
+.open-rail{width:min(980px,72%);height:8px;margin-top:48px;background:var(--accent);transform-origin:left center;box-shadow:0 0 24px color-mix(in srgb,var(--accent) 50%,transparent)}
+.portrait .open-safe{padding:120px 82px}.portrait .open-title{font-size:106px}.portrait .open-hook{font-size:31px}
 
 /* The scrim keeps every caption state readable over bright b-roll or light
    video — the studio preview shows the same gradient (they must agree). */
@@ -372,7 +495,9 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;
 /* Stat cards get the same compact corner treatment as b-roll — pinned top-right
    over the video so the host's face stays visible. */
 .stat{display:flex;justify-content:flex-end;align-items:flex-start;padding:48px}
-.stat-card{display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px 44px;
+/* position:relative so the .cue-meta badge anchors to the CARD, not the
+   full-frame overlay (and never depends on a GSAP transform side effect). */
+.stat-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:30px 44px;
   background:rgba(24,23,21,.92);border:1px solid var(--hairline);border-right:4px solid var(--ch);
   box-shadow:0 24px 70px rgba(0,0,0,.5)}
 .stat-figure{font-family:'Geist Mono',monospace;font-size:96px;font-weight:600;letter-spacing:-.03em;color:var(--ch);
@@ -387,15 +512,51 @@ html,body{width:100%;height:100%;background:#000;overflow:hidden;
 .quote-sub{margin-top:28px;font-size:32px;color:var(--text-2)}
 
 .lower-third{display:flex;align-items:flex-end;padding:0 0 200px 64px}
-.l3-bar{display:flex;align-items:stretch;gap:20px;background:rgba(16,15,14,.84);border:1px solid var(--hairline);
+/* position:relative anchors .cue-meta inside the bar (see .stat-card). */
+.l3-bar{position:relative;display:flex;align-items:stretch;gap:20px;background:rgba(16,15,14,.84);border:1px solid var(--hairline);
   padding:22px 30px;max-width:1200px}
 .l3-accent{width:6px;background:var(--ch);box-shadow:0 0 18px var(--ch)}
 .l3-title{font-size:44px;font-weight:700;color:var(--text);line-height:1.1}
 .l3-sub{font-size:30px;color:var(--text-2);margin-top:6px}
+
+/* Editorial treatment: alternate the supporting visual zone so the frame has
+   rhythm without replacing the host. */
+.cue-meta{position:absolute;top:18px;left:18px;right:18px;display:flex;justify-content:space-between;
+  font-family:'Geist Mono',monospace;font-size:17px;letter-spacing:.1em;color:var(--text);z-index:3}
+.treatment-editorial.broll{padding:58px}.treatment-editorial.broll .broll-card{width:min(570px,46%)}
+.treatment-editorial.cue-side-left{justify-content:flex-start}.treatment-editorial.cue-side-left .broll-card{transform-origin:20% 20%}
+.treatment-editorial.stat{padding:58px}.treatment-editorial.stat.cue-side-left{justify-content:flex-start}
+.treatment-editorial .stat-card{min-width:430px;align-items:flex-start;padding-top:64px}
+.treatment-editorial .quote-card{padding:76px 88px;background:rgba(16,15,14,.88);border:2px solid var(--hairline)}
+.treatment-editorial.lower-third{padding-left:88px}.treatment-editorial .l3-bar{min-width:58%;padding-top:58px}
+
+/* Cinematic treatment: image/stat/quote beats become their own full-frame
+   worlds. Captions stay above them on z-index 50. */
+.treatment-cinematic.broll{padding:0}.treatment-cinematic.broll .broll-card{width:100%;height:100%;aspect-ratio:auto;border:0;box-shadow:none;transform-origin:center}
+.treatment-cinematic.broll .broll-scrim{background:linear-gradient(180deg,rgba(16,15,14,.22) 0%,rgba(16,15,14,.04) 42%,rgba(16,15,14,.88) 100%)}
+.treatment-cinematic.broll .broll-label{left:76px;right:76px;bottom:188px;padding-left:22px;border-left:8px solid var(--ch);
+  font-size:48px;line-height:1.05;white-space:normal;text-shadow:0 4px 28px rgba(0,0,0,.8)}
+.treatment-cinematic.broll .broll-label .tick{display:none}
+.treatment-cinematic.broll .cue-meta{top:54px;left:76px;right:76px}
+.treatment-cinematic.stat{justify-content:flex-start;align-items:center;padding:100px;background:
+  radial-gradient(circle at 78% 20%,color-mix(in srgb,var(--ch) 22%,transparent),transparent 36%),var(--bg)}
+.treatment-cinematic .stat-card{width:78%;align-items:flex-start;padding:78px 0;background:transparent;border:0;border-top:3px solid var(--hairline);box-shadow:none}
+.treatment-cinematic .stat-figure{font-size:190px}.treatment-cinematic .stat-title{font-size:48px}.treatment-cinematic .stat-sub{font-size:30px}
+.stat-meter{width:100%;height:12px;margin-top:28px;background:var(--hairline);overflow:hidden}
+/* Starts collapsed — the GSAP fromTo only takes over at start+0.3s, and a
+   full-width bar during the card's fade-in would visibly snap to zero. */
+.stat-meter-fill{display:block;width:100%;height:100%;background:var(--ch);transform-origin:left center;transform:scaleX(0)}
+.treatment-cinematic.quote{padding:0 10%;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,var(--ch) 16%,transparent),transparent 48%),rgba(16,15,14,.96)}
+.treatment-cinematic .quote-text{font-size:92px}.treatment-cinematic .quote-card .cue-meta{top:-84px}
+.treatment-cinematic.lower-third{padding:0 84px 210px}.treatment-cinematic .l3-bar{width:100%;max-width:none;padding:58px 48px 28px}
+.portrait .treatment-cinematic.broll .broll-label{left:62px;right:62px;bottom:270px;font-size:58px}
+.portrait .treatment-cinematic.broll .cue-meta{left:62px;right:62px}
+.portrait .treatment-cinematic.stat{padding:82px}.portrait .treatment-cinematic .stat-card{width:100%}.portrait .treatment-cinematic .stat-figure{font-size:160px}
+.portrait .treatment-cinematic .quote-text{font-size:76px}
 </style>
 </head>
 <body>
-<div id="root" data-composition-id="podframes" data-start="0" data-width="${width}" data-height="${height}" data-duration="${r2(
+<div id="root" class="${height > width ? "portrait" : "landscape"}" data-composition-id="podframes" data-start="0" data-width="${width}" data-height="${height}" data-duration="${r2(
     durationSec,
   )}" data-fps="${fps}">
 ${videoEls}
