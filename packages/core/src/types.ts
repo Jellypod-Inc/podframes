@@ -108,7 +108,9 @@ export interface PipelineOptions {
   falVideoModel: string;
   /** Replicate audio-to-video model id (owner/name). */
   replicateVideoModel: string;
-  /** Generation + render resolution. */
+  /** Clip/still generation resolution AND the final file size: 720p outputs
+   *  1280×720 (a supersampled downscale of the fixed 1920-authored canvas),
+   *  1080p outputs the canvas natively at 1920×1080. */
   videoResolution: "720p" | "1080p";
   /** Silence between conversation turns, ms. */
   gapMs: number;

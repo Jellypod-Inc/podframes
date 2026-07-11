@@ -62,7 +62,14 @@ export async function runRender(ctx: StageContext): Promise<void> {
     }
   }
 
-  log.info(`rendering ${composition.width}x${composition.height} @ ${options.fps}fps · quality=${options.renderQuality} (slow)`);
+  // The composition is authored at the fixed 1920-based canvas (every px value
+  // in compose/builder.ts assumes it); videoResolution scales the FINAL file.
+  const scale = options.videoResolution === "720p" ? 2 / 3 : 1;
+  const targetW = Math.round(composition.width * scale);
+  const targetH = Math.round(composition.height * scale);
+  log.info(
+    `rendering ${composition.width}x${composition.height} @ ${options.fps}fps · quality=${options.renderQuality} · output ${targetW}x${targetH} (slow)`,
+  );
   const rawPath = project.path("output.raw.mp4");
   await run(
     cmd,
@@ -76,6 +83,12 @@ export async function runRender(ctx: StageContext): Promise<void> {
       String(options.fps),
       "--quality",
       options.renderQuality,
+      // hyperframes 0.6.x multi-worker captures: secondary workers render a
+      // viewport ~87px shorter than data-height, leaving a black bottom band
+      // for the first (N-1)/N of the video. One worker is 3-5× slower but
+      // correct. Verify by sampling bottom rows, not by eyeballing stills.
+      "--workers",
+      "1",
     ],
     { env, inherit: true },
   );
@@ -88,13 +101,32 @@ export async function runRender(ctx: StageContext): Promise<void> {
   // Safari, most embedded previews — render that empty edit as a BLACK first frame.
   // ffmpeg's `-ss 0` / signalstats DECODE frames and ignore the edit, which is why frame
   // captures always looked fine while players showed black. Fix: re-read ignoring the
-  // broken edit list and stream-copy (LOSSLESS) so the video starts cleanly at PTS 0.
-  log.info("normalizing mp4 (stripping empty leading edit → no black first frame)");
+  // broken edit list; 1080p stream-copies (LOSSLESS) so the video starts cleanly at PTS 0.
+  //
+  // 720p downscales HERE (supersampled from the 1920 canvas → sharper than a native
+  // 720p capture). A re-encode MUST disable B-frames (-bf 0): libx264's B-frames
+  // reintroduce the exact empty leading edit this step exists to kill.
+  const downscale = targetW !== composition.width;
+  log.info(
+    downscale
+      ? `normalizing mp4 + downscaling to ${targetW}x${targetH} (videoResolution=${options.videoResolution})`
+      : "normalizing mp4 (stripping empty leading edit → no black first frame)",
+  );
   await run("ffmpeg", [
     "-y", "-v", "error",
     "-ignore_editlist", "1",
     "-i", rawPath,
-    "-c", "copy",
+    ...(downscale
+      ? [
+          "-vf", `scale=${targetW}:${targetH}:flags=lanczos`,
+          "-c:v", "libx264",
+          "-bf", "0",
+          "-preset", options.renderQuality === "draft" ? "veryfast" : "medium",
+          "-crf", options.renderQuality === "draft" ? "22" : "18",
+          "-pix_fmt", "yuv420p",
+          "-c:a", "copy",
+        ]
+      : ["-c", "copy"]),
     "-movflags", "+faststart",
     outPath,
   ]);
